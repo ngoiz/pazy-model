@@ -27,12 +27,13 @@ class PazyStructure:
     def __init__(self, n_elem=None):
         # settings
         self.source_path = './src/'
-        self.skin = False
-        self.evenly_spaced = True
+        self.skin = True
+        self.evenly_spaced = False
         if n_elem is not None:
             self.n_elem = n_elem
         else:
             self.n_elem = None
+        self.discretisation_michigan = True
 
         # coordinates
         self.x = None
@@ -87,14 +88,37 @@ class PazyStructure:
         if self.evenly_spaced:
             self.y = np.linspace(0, y[-1], self.n_node)
         else:
-            self.y = np.zeros(self.n_node)
-            init_region = 0.07
-            end_region = 0.45
+            if self.discretisation_michigan:
+                n_fact = 2
+                self.n_elem = 2 ** (n_fact-1) * (len(x) - 1)
+                self.n_node = self.n_elem * (self.num_node_elem - 1) + 1
+                # print(self.n_node)
+                # print(len(y))
+                self.y = np.zeros(self.n_node)
+                i_node = 0
+                for i_um_node in range(len(y)-1):
+                    # print('i', y[i_um_node])
+                    # print('end', y[i_um_node + 1])
+                    self.y[i_node] = y[i_um_node]
+                    self.y[i_node + 1] = 0.5 * (y[i_um_node + 1] - y[i_um_node]) + y[i_um_node]
 
-            idx_init = int(self.n_node // 3)
-            self.y[:idx_init] = np.linspace(0, init_region, int(self.n_node // 3))
-            self.y[idx_init:2*idx_init] = np.linspace(init_region, end_region, int(self.n_node // 3)+1)[1:]
-            self.y[2 * idx_init:] = np.linspace(end_region, y[-1], len(self.y[2*idx_init:])+1)[1:]
+                    in_between_nodes = np.linspace(y[i_um_node], y[i_um_node+1], 1 + 2 ** n_fact)
+                    # print(in_between_nodes)
+                    self.y[i_node + 1: i_node + 2 ** n_fact] = in_between_nodes[1:-1]
+                    self.y[i_node + 2 ** n_fact] = y[i_um_node + 1]
+
+                    i_node += 2 ** n_fact
+                    # print(self.y)
+                    # import pdb; pdb.set_trace()
+            else:
+                self.y = np.zeros(self.n_node)
+                init_region = 0.07
+                end_region = 0.45
+
+                idx_init = int(self.n_node // 3)
+                self.y[:idx_init] = np.linspace(0, init_region, int(self.n_node // 3))
+                self.y[idx_init:2*idx_init] = np.linspace(init_region, end_region, int(self.n_node // 3)+1)[1:]
+                self.y[2 * idx_init:] = np.linspace(end_region, y[-1], len(self.y[2*idx_init:])+1)[1:]
 
         self.x = np.zeros_like(self.y)
         self.z = np.zeros_like(self.y)
@@ -305,21 +329,16 @@ class PazyStructure:
         mid_elem = np.zeros((self.n_elem, 3))
 
         self.mass_db = np.zeros((self.n_elem, 6, 6), dtype=float)
-        # TODO: check for actual differences in mass matrix to just keep the needed ones
         for i_elem in range(self.n_elem):
             mid_elem[i_elem] = coords[self.connectivities[i_elem, -1]]
             for i in range(3):
                 cg_elem[i_elem, i] = np.interp(mid_elem[i_elem, 1], self.source['coords'][:, 1], c_gb[:, i])
 
-            # mu_elem = self.mass_db[i_elem, 0, 0]
-            # self.mass_db[i_elem] *= 1e-10
             self.mass_db[i_elem, 0, 0] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 1, 1] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 2, 2] = sharpy_mu_elem[i_elem]
-            # # print(c_gb[i_elem])
             self.mass_db[i_elem, :3, 3:] = -algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 3:, :3] = algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
-            # self.mass_db[i_elem, 3:, 3:] = inertia_tensor[i_elem + 1] / elem_length
 
             self.mass_db[i_elem, 3, 3] = sharpy_inertia_elem[i_elem, 0]
             self.mass_db[i_elem, 4, 4] = sharpy_inertia_elem[i_elem, 1]
@@ -335,9 +354,9 @@ class PazyStructure:
             self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4]
 
         # self.lumped_mass = np.array([0])
-        # self.lumped_mass_nodes = np.array([0], dtype=int)
+        # self.lumped_mass_nodes = np.array([self.n_node-1], dtype=int)
         # self.lumped_mass_inertia = np.zeros((1, 3, 3))
-        # self.lumped_mass_inertia[0, :] = inertia_tensor[-1, :]
+        # self.lumped_mass_inertia[0, :] = np.diag([1e-5, 1e-10, 1e-5])
         # self.lumped_mass_position = np.zeros((1, 3))
         np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
         np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
@@ -367,6 +386,17 @@ class PazyStructure:
         ea = df['K11']
         n_stiffness = len(ea)  # stiffness per element, mass was per node
         um_stiffness = np.zeros((n_stiffness, 6, 6), dtype=float)
+
+        np.savetxt('./um_stiffness.txt', np.column_stack((df['K11'],
+                                                          df['K22'],
+                                                          df['K33'],
+                                                          df['K44'],
+                                                          df['K12'],
+                                                          df['K13'],
+                                                          df['K14'],
+                                                          df['K23'],
+                                                          df['K24'],
+                                                          df['K34'])))
 
         ga = 1e6
         um_stiffness[:, 0, 0] = ea
@@ -402,8 +432,10 @@ class PazyStructure:
         mid_elem = np.zeros((self.n_elem, 3))
 
         mid_elem_um = np.zeros(n_stiffness)
-        for i_um_elem in range(1, n_stiffness):
-            mid_elem_um[i_um_elem] = 0.5 * (self.source['y'][i_um_elem] - self.source['y'][i_um_elem-1]) + self.source['y'][i_um_elem-1]
+        for i_um_elem in range(1, n_stiffness+1):
+            mid_elem_um[i_um_elem-1] = 0.5 * (self.source['y'][i_um_elem] - self.source['y'][i_um_elem-1]) + self.source['y'][i_um_elem-1]
+
+        np.savetxt('./um_mid_elem.txt', mid_elem_um)
 
         for i_elem in range(self.n_elem):
             mid_elem[i_elem] = coords[self.connectivities[i_elem, -1]]
@@ -557,7 +589,7 @@ if __name__ == '__main__':
     #     pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
     #     sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
-    n_elem = 64
+    n_elem = 16
     pazy = PazyWing()
     case_name = 'modal_inertia_even_n{}'.format(n_elem)
     output_folder = './output/'
