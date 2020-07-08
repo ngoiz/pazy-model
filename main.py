@@ -221,12 +221,20 @@ class PazyStructure:
         # distributed inertia
         um_distributed_inertia = np.zeros((n_mass, 6))
 
-        list_of_inertias = [np.array(df['Iyy']),
-                            np.array(df['Ixx']),
-                            np.array(df['Izz']),
-                            np.array(df['Ixy']),
-                            np.array(df['Iyz']),
-                            np.array(df['Ixz'])]
+        # list_of_inertias = [np.array(df['Iyy']),
+        #                     np.array(df['Ixx']),
+        #                     np.array(df['Izz']),
+        #                     np.array(df['Ixy']),
+        #                     np.array(df['Iyz']),
+        #                     np.array(df['Ixz'])]
+
+        transformed_inertia = self.transform_inertia(inertia_tensor, nodal_mass, c_gb, self.source['coords']*0)
+        list_of_inertias = [transformed_inertia[:, 0, 0],
+                            transformed_inertia[:, 1, 1],
+                            transformed_inertia[:, 2, 2],
+                            transformed_inertia[:, 0, 1],
+                            transformed_inertia[:, 0, 2],
+                            transformed_inertia[:, 1, 2]]
 
         for i_um_node in range(1, len(um_element_ends)-1):
             if i_um_node == 1:
@@ -333,6 +341,23 @@ class PazyStructure:
         # self.lumped_mass_position = np.zeros((1, 3))
         np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
         np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
+
+    def transform_inertia(self, inertia_tensor_array, m_node, cg, r_node):
+
+        n_node = inertia_tensor_array.shape[0]
+
+        transformed_inertia = np.zeros_like(inertia_tensor_array)
+
+        for i_node in range(n_node):
+            d = r_node[i_node] - cg[i_node]
+            m = m_node[i_node]
+            transformed_inertia[i_node, :] = self.parallel_axes(inertia_tensor_array[i_node, :], m, d)
+
+        return transformed_inertia
+
+    @staticmethod
+    def parallel_axes(ic, m, d):
+        return ic - m * algebra.skew(d).dot(algebra.skew(d))
 
     def load_stiffness(self):
 
@@ -524,13 +549,19 @@ class PazyStructure:
 
 if __name__ == '__main__':
     import sharpy.sharpy_main
-    for n_elem in [16, 32, 64, 92, 128]:
-        pazy = PazyWing()
-        case_name = 'modal_even_n{}'.format(n_elem)
-        output_folder = './output/'
-        pazy.generate_structure(n_elem, case_name=case_name)
-        pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
-        sharpy.sharpy_main.main(['', case_name + '.sharpy'])
+    # for n_elem in [16, 32, 64, 92, 128]:
+    #     pazy = PazyWing()
+    #     case_name = 'modal_inertia_even_n{}'.format(n_elem)
+    #     output_folder = './output/'
+    #     pazy.generate_structure(n_elem, case_name=case_name)
+    #     pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
+    #     sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
-
+    n_elem = 64
+    pazy = PazyWing()
+    case_name = 'modal_inertia_even_n{}'.format(n_elem)
+    output_folder = './output/'
+    pazy.generate_structure(n_elem, case_name=case_name)
+    pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
+    sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
