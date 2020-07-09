@@ -2,7 +2,7 @@ import configobj
 import h5py as h5
 import numpy as np
 import pandas as pd
-
+import os
 from sharpy.utils import algebra as algebra
 
 
@@ -10,7 +10,8 @@ class PazyStructure:
 
     def __init__(self, **kwargs):
         # settings
-        self.source_path = './src/'
+        local_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+        self.source_path = local_path + '/src/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.n_elem = kwargs.get('num_elem', 2)
@@ -43,6 +44,8 @@ class PazyStructure:
         self.app_forces = None
 
         self.source = dict()
+
+        self.debug = False
 
     def generate(self):
         self.coordinates(method_tuple=(self.discretisation_method, self.n_elem))
@@ -110,8 +113,9 @@ class PazyStructure:
         self.connectivities[:, 1] = np.arange(2, self.n_node, 2)
         self.connectivities[:, 2] = np.arange(1, self.n_node - 1, 2)
 
-        np.savetxt('./coords_sharpy.txt', np.column_stack((self.x, self.y, self.z)))
-        np.savetxt('./coords_um.txt', self.source['coords'])
+        if self.debug:
+            np.savetxt('./coords_sharpy.txt', np.column_stack((self.x, self.y, self.z)))
+            np.savetxt('./coords_um.txt', self.source['coords'])
 
     def _get_skin(self):
         if self.skin:
@@ -132,8 +136,6 @@ class PazyStructure:
         c_gb[:, 1] = -df['cgx']
         c_gb[:, 0] = df['cgy'] # change indices for SHARPy B frame, original in A frame
         c_gb[:, 2] = df['cgz']
-
-        print('Total mass (UM): ', np.sum(nodal_mass))
 
         mass_data_nodes = np.zeros((n_mass, 6, 6), dtype=float)
         mass_data_nodes[:, 0, 0] = nodal_mass
@@ -174,9 +176,10 @@ class PazyStructure:
         inertia_tensor[:, 0, 2] = df['Iyz'] * cross_term_factor
         inertia_tensor[:, 2, 0] = df['Iyz'] * cross_term_factor
 
-        np.savetxt('./um_inertia.txt', np.column_stack((inertia_tensor[:, 0, 0],
-                                                        inertia_tensor[:, 1, 1],
-                                                        inertia_tensor[:, 2, 2])))
+        if self.debug:
+            np.savetxt('./um_inertia.txt', np.column_stack((inertia_tensor[:, 0, 0],
+                                                            inertia_tensor[:, 1, 1],
+                                                            inertia_tensor[:, 2, 2])))
 
         # interpolate for beam elems
         # self.mass_db = np.zeros((self.n_elem, 6, 6), dtype=float)
@@ -264,16 +267,17 @@ class PazyStructure:
             # current_mu = um_distributed_mass[i_um]
             # sharpy_mu_elem[i_elem] = current_mu
 
-        np.savetxt('./um_nodal_mass.txt', nodal_mass)
-        np.savetxt('./um_distributed_mass.txt', um_distributed_mass)
+        if self.debug:
+            np.savetxt('./um_nodal_mass.txt', nodal_mass)
+            np.savetxt('./um_distributed_mass.txt', um_distributed_mass)
 
-        np.savetxt('./sharpy_distributed_mass.txt', sharpy_mu_elem)
-        np.savetxt('./sharpy_mid_elem_coord.txt', mid_elem)
-        np.savetxt('./sharpy_elem_length.txt', sharpy_elem_length)
+            np.savetxt('./sharpy_distributed_mass.txt', sharpy_mu_elem)
+            np.savetxt('./sharpy_mid_elem_coord.txt', mid_elem)
+            np.savetxt('./sharpy_elem_length.txt', sharpy_elem_length)
 
-        np.savetxt('./um_distributed_inertia.txt', um_distributed_inertia)
-        np.savetxt('./um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
-        np.savetxt('./sharpy_distributed_inertia.txt', sharpy_inertia_elem)
+            np.savetxt('./um_distributed_inertia.txt', um_distributed_inertia)
+            np.savetxt('./um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
+            np.savetxt('./sharpy_distributed_inertia.txt', sharpy_inertia_elem)
 
         # interpolate CG position of the beam element from the cg origin data
         cg_elem = np.zeros((self.n_elem, 3))
@@ -304,8 +308,9 @@ class PazyStructure:
             self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4]
             self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4]
 
-        np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
-        np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
+        if self.debug:
+            np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
+            np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
 
     def transform_inertia(self, inertia_tensor_array, m_node, cg, r_node):
 
@@ -333,16 +338,17 @@ class PazyStructure:
         n_stiffness = len(ea)  # stiffness per element, mass was per node
         um_stiffness = np.zeros((n_stiffness, 6, 6), dtype=float)
 
-        np.savetxt('./um_stiffness.txt', np.column_stack((df['K11'],
-                                                          df['K22'],
-                                                          df['K33'],
-                                                          df['K44'],
-                                                          df['K12'],
-                                                          df['K13'],
-                                                          df['K14'],
-                                                          df['K23'],
-                                                          df['K24'],
-                                                          df['K34'])))
+        if self.debug:
+            np.savetxt('./um_stiffness.txt', np.column_stack((df['K11'],
+                                                              df['K22'],
+                                                              df['K33'],
+                                                              df['K44'],
+                                                              df['K12'],
+                                                              df['K13'],
+                                                              df['K14'],
+                                                              df['K23'],
+                                                              df['K24'],
+                                                              df['K34'])))
 
         ga = 3e6
         um_stiffness[:, 0, 0] = ea
@@ -381,7 +387,8 @@ class PazyStructure:
         for i_um_elem in range(1, n_stiffness+1):
             mid_elem_um[i_um_elem-1] = 0.5 * (self.source['y'][i_um_elem] - self.source['y'][i_um_elem-1]) + self.source['y'][i_um_elem-1]
 
-        np.savetxt('./um_mid_elem.txt', mid_elem_um)
+        if self.debug:
+            np.savetxt('./um_mid_elem.txt', mid_elem_um)
 
         for i_elem in range(self.n_elem):
             mid_elem[i_elem] = coords[self.connectivities[i_elem, -1]]
@@ -415,8 +422,6 @@ class PazyStructure:
             for mass_items in items:
                 self._new_lumped_mass(*mass_items)
 
-        import pdb; pdb.set_trace()
-
     def _new_lumped_mass(self, mass, node, inertia=np.zeros((3, 3)), position=np.zeros(3)):
         if inertia is None:
             inertia = np.zeros((3, 3))
@@ -428,10 +433,12 @@ class PazyStructure:
             self.lumped_mass_nodes = np.array([node], dtype=int)
             inertia.shape = (1, 3, 3)
             self.lumped_mass_inertia = inertia
+            position.shape = (1, 3)
             self.lumped_mass_position = position
         else:
             self.lumped_mass = np.concatenate([self.lumped_mass, np.array([mass])])
             self.lumped_mass_nodes = np.concatenate([self.lumped_mass_nodes, np.array([node])])
+            position.shape = (1, 3)
             self.lumped_mass_position = np.vstack((self.lumped_mass_position, position))
             inertia.shape = (1, 3, 3)
             self.lumped_mass_inertia = np.concatenate((self.lumped_mass_inertia, inertia), axis=0)
@@ -469,9 +476,9 @@ class PazyStructure:
         # externally applied forces
         self.app_forces = np.zeros((self.n_node, 6))
 
-    def save_fem_file(self, case_name):
+    def save_fem_file(self, case_name, case_route='./'):
 
-        filepath = './{}.fem.h5'.format(case_name)
+        filepath = case_route + '/{}.fem.h5'.format(case_name)
 
         with h5.File(filepath, 'w') as h5file:
             coordinates = h5file.create_dataset('coordinates', data=np.column_stack((self.x, self.y, self.z)))
@@ -500,8 +507,6 @@ class PazyStructure:
                 'beam_number', data=self.beam_number)
             app_forces_handle = h5file.create_dataset(
                 'app_forces', data=self.app_forces)
-            print(self.lumped_mass)
-            print(filepath)
             if self.lumped_mass is not None:
                 lumped_mass_nodes_handle = h5file.create_dataset(
                     'lumped_mass_nodes', data=self.lumped_mass_nodes)
