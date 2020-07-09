@@ -27,7 +27,7 @@ class PazyStructure:
     def __init__(self, n_elem=None):
         # settings
         self.source_path = './src/'
-        self.skin = True
+        self.skin = False
         self.evenly_spaced = False
         if n_elem is not None:
             self.n_elem = n_elem
@@ -312,6 +312,7 @@ class PazyStructure:
         np.savetxt('./sharpy_elem_length.txt', sharpy_elem_length)
 
         np.savetxt('./um_distributed_inertia.txt', um_distributed_inertia)
+        np.savetxt('./um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
         np.savetxt('./sharpy_distributed_inertia.txt', sharpy_inertia_elem)
 
         # lumped mass test
@@ -398,7 +399,7 @@ class PazyStructure:
                                                           df['K24'],
                                                           df['K34'])))
 
-        ga = 1e6
+        ga = 3e6
         um_stiffness[:, 0, 0] = ea
         um_stiffness[:, 1, 1] = ga
         um_stiffness[:, 2, 2] = ga
@@ -589,7 +590,7 @@ if __name__ == '__main__':
     #     pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
     #     sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
-    n_elem = 16
+    n_elem = 32
     pazy = PazyWing()
     case_name = 'modal_inertia_even_n{}'.format(n_elem)
     output_folder = './output/'
