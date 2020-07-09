@@ -129,11 +129,11 @@ dmypy.json
 .pyre/
 
 # sharpy files
-.h5
-.vtu
-.fem
+*.h5
+*.vtu
+*.fem*
 .aero
-.sharpy
+*.sharpy
 cases/
 output/
 
