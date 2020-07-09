@@ -16,6 +16,8 @@ class PazyStructure:
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.n_elem = kwargs.get('num_elem', 2)
 
+        self.mirrored = False
+
         # coordinates
         self.x = None
         self.y = None
@@ -153,11 +155,11 @@ class PazyStructure:
         mass_data_nodes[:, 3, 3] = df['Iyy']
         mass_data_nodes[:, 5, 5] = df['Izz']
 
-        mass_data_nodes[:, 3, 4] = df['Ixy'] * cross_term_factor
-        mass_data_nodes[:, 4, 3] = df['Ixy'] * cross_term_factor
+        mass_data_nodes[:, 3, 4] = -df['Ixy'] * cross_term_factor
+        mass_data_nodes[:, 4, 3] = -df['Ixy'] * cross_term_factor
 
-        mass_data_nodes[:, 4, 5] = df['Ixz'] * cross_term_factor
-        mass_data_nodes[:, 5, 4] = df['Ixz'] * cross_term_factor
+        mass_data_nodes[:, 4, 5] = -df['Ixz'] * cross_term_factor
+        mass_data_nodes[:, 5, 4] = -df['Ixz'] * cross_term_factor
 
         mass_data_nodes[:, 3, 5] = df['Iyz'] * cross_term_factor
         mass_data_nodes[:, 5, 3] = df['Iyz'] * cross_term_factor
@@ -516,6 +518,67 @@ class PazyStructure:
                     'lumped_mass_inertia', data=self.lumped_mass_inertia)
                 lumped_mass_position_handle = h5file.create_dataset(
                     'lumped_mass_position', data=self.lumped_mass_position)
+
+    def mirror_wing(self):
+        #mirror on xa-za plane
+        if self.mirrored:
+            print('wing already mirrored')
+            return 0
+        new_connectivities = np.zeros_like(self.connectivities)
+        new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
+        new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
+        new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node -1, 2)
+        # join
+        new_connectivities[-1, 1] = 0
+
+        self.connectivities = np.concatenate((self.connectivities, new_connectivities))
+
+        self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
+
+        self.n_elem *= 2
+        self.n_node = 2 * self.n_node - 1
+
+        rev_y = -self.y[1:][::-1]
+        self.y = np.concatenate((self.y, rev_y))
+
+        self.beam_number = np.concatenate((self.beam_number, self.beam_number + 1))
+        self.structural_twist = np.zeros((self.n_elem, self.num_node_elem))
+
+        self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:][::-1]))
+
+        self.frame_of_reference_delta = np.concatenate((self.frame_of_reference_delta, self.frame_of_reference_delta))
+
+        # import pdb; pdb.set_trace()
+        self.x = np.zeros_like(self.y)
+        self.z = np.zeros_like(self.y)
+
+        # mirror stiffness matrix
+        self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
+        self.elem_stiffness = np.arange(0, self.n_elem)
+
+        self.stiffness_db[self.n_elem//2:, 0, 3] *= -1 # axial - torsion
+        self.stiffness_db[self.n_elem//2:, 3, 0] *= -1 # checked
+
+        self.stiffness_db[self.n_elem//2:, 3, 4:] *= -1
+        self.stiffness_db[self.n_elem//2:, 4:, 3] *= -1 # torsion cross terms
+
+        # mirror inertia matrix
+        self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
+        self.elem_mass = np.arange(0, self.n_elem)
+
+        self.mass_db[self.n_elem//2:, 3, 4:] *= -1
+        self.mass_db[self.n_elem//2:, 4:, 3] *= -1
+
+        self.mass_db[self.n_elem//2:, 1, 5] *= -1
+        self.mass_db[self.n_elem//2:, 2, 4] *= -1
+
+        self.mass_db[self.n_elem//2:, 5, 1] *= -1
+        self.mass_db[self.n_elem//2:, 4, 2] *= -1
+        # self.mass_db[:, 0, 5] *= 0
+        # self.mass_db[:, 5, 0] *= 0
+
+
+        self.mirrored = True
 
     def create_modal_simulation(self, case_name, case_route='./', output_folder='./output'):
         settings = dict()
