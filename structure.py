@@ -167,11 +167,11 @@ class PazyStructure:
         inertia_tensor[:, 0, 0] = df['Iyy']
         inertia_tensor[:, 2, 2] = df['Izz']
 
-        inertia_tensor[:, 0, 1] = df['Ixy'] * cross_term_factor
-        inertia_tensor[:, 1, 0] = df['Ixy'] * cross_term_factor
+        inertia_tensor[:, 0, 1] = -df['Ixy'] * cross_term_factor
+        inertia_tensor[:, 1, 0] = -df['Ixy'] * cross_term_factor
 
-        inertia_tensor[:, 1, 2] = df['Ixz'] * cross_term_factor
-        inertia_tensor[:, 2, 1] = df['Ixz'] * cross_term_factor
+        inertia_tensor[:, 1, 2] = -df['Ixz'] * cross_term_factor
+        inertia_tensor[:, 2, 1] = -df['Ixz'] * cross_term_factor
 
         inertia_tensor[:, 0, 2] = df['Iyz'] * cross_term_factor
         inertia_tensor[:, 2, 0] = df['Iyz'] * cross_term_factor
