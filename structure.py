@@ -23,6 +23,10 @@ class PazyStructure:
         # inertia
         self.mass_db = None
         self.elem_mass = None
+        self.lumped_mass = None
+        self.lumped_mass_nodes = None
+        self.lumped_mass_position = None
+        self.lumped_mass_inertia = None
 
         # stiffness
         self.stiffness_db = None
@@ -271,16 +275,6 @@ class PazyStructure:
         np.savetxt('./um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
         np.savetxt('./sharpy_distributed_inertia.txt', sharpy_inertia_elem)
 
-        # lumped mass test
-        self.lumped_mass = nodal_mass * 0
-        self.lumped_mass_nodes = np.zeros(n_mass, dtype=int)
-        i_node = 0
-        # for i_mass in range(n_mass):
-        #     self.lumped_mass_nodes[i_mass] = i_node
-        #     i_node += 2
-        self.lumped_mass_position = c_gb * 0
-        self.lumped_mass_inertia = inertia_tensor * 0
-
         # interpolate CG position of the beam element from the cg origin data
         cg_elem = np.zeros((self.n_elem, 3))
         mid_elem = np.zeros((self.n_elem, 3))
@@ -310,11 +304,6 @@ class PazyStructure:
             self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4]
             self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4]
 
-        # self.lumped_mass = np.array([0])
-        # self.lumped_mass_nodes = np.array([self.n_node-1], dtype=int)
-        # self.lumped_mass_inertia = np.zeros((1, 3, 3))
-        # self.lumped_mass_inertia[0, :] = np.diag([1e-5, 1e-10, 1e-5])
-        # self.lumped_mass_position = np.zeros((1, 3))
         np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
         np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
 
@@ -418,9 +407,36 @@ class PazyStructure:
             self.stiffness_db[i_elem, 4, 5] = np.interp(mid_elem[i_elem, 1], mid_elem_um, um_stiffness[:, 4, 5])
             self.stiffness_db[i_elem, 5, 4] = self.stiffness_db[i_elem, 4, 5]
 
+    def add_lumped_mass(self, items):
+
+        if type(items) is tuple:
+            self._new_lumped_mass(*items)
+        elif type(items) is list:
+            for mass_items in items:
+                self._new_lumped_mass(*mass_items)
+
+        import pdb; pdb.set_trace()
+
+    def _new_lumped_mass(self, mass, node, inertia=np.zeros((3, 3)), position=np.zeros(3)):
+        if inertia is None:
+            inertia = np.zeros((3, 3))
+        if position is None:
+            position = np.zeros(3)
+
+        if self.lumped_mass is None:
+            self.lumped_mass = np.array([mass])
+            self.lumped_mass_nodes = np.array([node], dtype=int)
+            inertia.shape = (1, 3, 3)
+            self.lumped_mass_inertia = inertia
+            self.lumped_mass_position = position
+        else:
+            self.lumped_mass = np.concatenate([self.lumped_mass, np.array([mass])])
+            self.lumped_mass_nodes = np.concatenate([self.lumped_mass_nodes, np.array([node])])
+            self.lumped_mass_position = np.vstack((self.lumped_mass_position, position))
+            inertia.shape = (1, 3, 3)
+            self.lumped_mass_inertia = np.concatenate((self.lumped_mass_inertia, inertia), axis=0)
 
     def create_fem(self):
-
 
         # stiffness assignment
         self.elem_stiffness = np.zeros(self.n_elem, dtype=int)
@@ -484,14 +500,17 @@ class PazyStructure:
                 'beam_number', data=self.beam_number)
             app_forces_handle = h5file.create_dataset(
                 'app_forces', data=self.app_forces)
-            lumped_mass_nodes_handle = h5file.create_dataset(
-                'lumped_mass_nodes', data=self.lumped_mass_nodes)
-            lumped_mass_handle = h5file.create_dataset(
-                'lumped_mass', data=self.lumped_mass)
-            lumped_mass_inertia_handle = h5file.create_dataset(
-                'lumped_mass_inertia', data=self.lumped_mass_inertia)
-            lumped_mass_position_handle = h5file.create_dataset(
-                'lumped_mass_position', data=self.lumped_mass_position)
+            print(self.lumped_mass)
+            print(filepath)
+            if self.lumped_mass is not None:
+                lumped_mass_nodes_handle = h5file.create_dataset(
+                    'lumped_mass_nodes', data=self.lumped_mass_nodes)
+                lumped_mass_handle = h5file.create_dataset(
+                    'lumped_mass', data=self.lumped_mass)
+                lumped_mass_inertia_handle = h5file.create_dataset(
+                    'lumped_mass_inertia', data=self.lumped_mass_inertia)
+                lumped_mass_position_handle = h5file.create_dataset(
+                    'lumped_mass_position', data=self.lumped_mass_position)
 
     def create_modal_simulation(self, case_name, case_route='./', output_folder='./output'):
         settings = dict()
