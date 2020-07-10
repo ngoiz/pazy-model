@@ -1,5 +1,8 @@
 from structure import PazyStructure
 import sharpy.utils.settings as settings
+import aero
+import configobj
+
 
 class PazyWing:
 
@@ -22,6 +25,12 @@ class PazyWing:
                                              'the original number of elements is replicated, else is the number of ' \
                                              'elements'
 
+    model_settings_types['surface_m'] = 'int'
+    model_settings_default['surface_m'] = 4
+
+    model_settings_types['num_surfaces'] = 'int'
+    model_settings_default['num_surfaces'] = 2
+
     def __init__(self, case_name, case_route='./', in_settings=None):
         self.case_name = case_name
         self.case_route = case_route
@@ -35,6 +44,16 @@ class PazyWing:
                                  self.model_settings_options, no_ctype=True)
 
         self.structure = None
+        self.aero = None
+
+    def _get_ea_reference_line(self):
+
+        if self.settings['skin_on']:
+            ea = 0.5310
+        else:
+            ea = 0.4410
+
+        return ea
 
     def generate_structure(self):
         pazy = PazyStructure(**self.settings)
@@ -42,10 +61,93 @@ class PazyWing:
 
         self.structure = pazy
 
+    def generate_aero(self):
+        pazy_aero = aero.PazyAero(main_ea=self._get_ea_reference_line(),
+                                  pazy_structure=self.structure,
+                                  **self.settings)
+
+        pazy_aero.generate_aero()
+
+        self.aero = pazy_aero
+
+    def create_aeroelastic_model(self):
+        self.generate_structure()
+        self.structure.mirror_wing()
+        self.generate_aero()
+
     def save_files(self):
         self.structure.save_fem_file(case_name=self.case_name, case_route=self.case_route)
+        self.aero.save_files(case_name=self.case_name, case_route=self.case_route)
 
-# load michigan's results
+
+def view_wing(case_name, case_route='./', output_folder='./output/'):
+
+    model_settings = {'skin_on': 'off',
+                      'discretisation_method': 'michigan',
+                      'num_elem': 2}
+    pazy = PazyWing(case_name, case_route, in_settings=model_settings)
+    pazy.generate_structure()
+    pazy.structure.mirror_wing()
+    pazy.generate_aero()
+    pazy.save_files()
+
+    settings = dict()
+
+    config = configobj.ConfigObj()
+    config.filename = './{}.sharpy'.format(case_name)
+
+    settings['SHARPy'] = {
+        'flow': ['BeamLoader',
+                 'AerogridLoader',
+                 'Modal',
+                 'BeamPlot',
+                 'AerogridPlot'
+                 ],
+        'case': case_name, 'route': case_route,
+        'write_screen': 'on', 'write_log': 'on',
+        'log_folder': output_folder + '/' + case_name + '/',
+        'log_file': case_name + '.log'}
+
+    settings['BeamLoader'] = {
+        'unsteady': 'off'}
+
+    settings['AerogridLoader'] = {
+        'unsteady': 'off',
+        'aligned_grid': 'on',
+        'mstar': 4 * 4,
+        'freestream_dir': [1, 0, 0],
+        'wake_shape_generator': 'StraightWake',
+        'wake_shape_generator_input': {'u_inf': 10,
+                                       'u_inf_direction': [1, 0, 0],
+                                       'dt': 0.1}}
+
+
+    settings['Modal'] = {'folder': output_folder,
+                         'NumLambda': 20,
+                         'rigid_body_modes': 'off',
+                         'print_matrices': 'on',
+                         'keep_linear_matrices': 'on',
+                         'write_dat': 'on',
+                         'continuous_eigenvalues': 'off',
+                         'dt': 0,
+                         'plot_eigenvalues': False,
+                         # 'max_rotation_deg': 15.,
+                         # 'max_displacement': 0.15,
+                         'write_modes_vtk': 'on',
+                         'use_undamped_modes': 'on'}
+
+    settings['BeamPlot'] = {'folder': output_folder}
+
+    settings['AerogridPlot'] = {'folder': output_folder,
+                              'include_rbm': 'off',
+                              'include_applied_forces': 'on',
+                              'minus_m_star': 0}
+
+    for k, v in settings.items():
+        config[k] = v
+
+    config.write()
+
 
 if __name__ == '__main__':
     import sharpy.sharpy_main
@@ -57,23 +159,24 @@ if __name__ == '__main__':
     #     pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
     #     sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
-    n_elem = 32
     # pazy = PazyWing()
-    case_name = 'modal_inertia_even_n{}'.format(n_elem)
+    case_name = 'full_wing'
     output_folder = './output/'
     # pazy.generate_structure(n_elem, case_name=case_name)
     # pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
     # sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
-    model_settings = {'skin_on': 'off',
-                      'discretisation_method': 'michigan',
-                      'num_elem': 2}
-
-    pazy = PazyWing(case_name, model_settings)
-    pazy.generate_structure()
+    # model_settings = {'skin_on': 'off',
+    #                   'discretisation_method': 'michigan',
+    #                   'num_elem': 2}
+    #
+    # pazy = PazyWing(case_name, case_route='./', in_settings=model_settings)
+    # pazy.generate_structure()
+    # pazy.structure.mirror_wing()
+    # # pazy.structure.add_lumped_mass((10, 0))
+    # pazy.save_files()
     # pazy.structure.create_modal_simulation(case_name=case_name, output_folder=output_folder)
 
-    pazy.structure.add_lumped_mass((10, 0))
-    pazy.save_files()
-    # sharpy.sharpy_main.main(['', case_name + '.sharpy'])
+    view_wing(case_name, './')
+    sharpy.sharpy_main.main(['', case_name + '.sharpy'])
 
