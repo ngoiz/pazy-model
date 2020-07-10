@@ -14,7 +14,7 @@ class PazyStructure:
         self.source_path = local_path + '/src/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
-        self.n_elem = kwargs.get('num_elem', 2)
+        self.init_discretisation = kwargs.get('num_elem', 2)
 
         self.mirrored = False
 
@@ -37,6 +37,7 @@ class PazyStructure:
 
         # FEM
         self.n_node = None
+        self.n_elem = None
         self.num_node_elem = 3
         self.connectivities = None
         self.frame_of_reference_delta = None
@@ -50,7 +51,7 @@ class PazyStructure:
         self.debug = False
 
     def generate(self):
-        self.coordinates(method_tuple=(self.discretisation_method, self.n_elem))
+        self.coordinates(method_tuple=(self.discretisation_method, self.init_discretisation))
         self.load_mass()
         self.load_stiffness()
 
@@ -574,9 +575,6 @@ class PazyStructure:
 
         self.mass_db[self.n_elem//2:, 5, 1] *= -1
         self.mass_db[self.n_elem//2:, 4, 2] *= -1
-        # self.mass_db[:, 0, 5] *= 0
-        # self.mass_db[:, 5, 0] *= 0
-
 
         self.mirrored = True
 
