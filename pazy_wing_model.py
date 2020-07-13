@@ -2,6 +2,7 @@ from structure import PazyStructure
 import sharpy.utils.settings as settings
 import aero
 import configobj
+import sharpy.utils.cout_utils as cout
 
 
 class PazyWing:
@@ -35,6 +36,8 @@ class PazyWing:
         self.case_name = case_name
         self.case_route = case_route
 
+        cout.start_writer()
+
         if in_settings is not None:
             self.settings = in_settings
         else:
@@ -45,6 +48,12 @@ class PazyWing:
 
         self.structure = None
         self.aero = None
+
+        self.config = configobj.ConfigObj()
+        self.config.filename = self.case_route + '/' + self.case_name + '.sharpy'
+
+    def save_config(self):
+        self.config.write()
 
     def _get_ea_reference_line(self):
 
@@ -77,7 +86,8 @@ class PazyWing:
 
     def save_files(self):
         self.structure.save_fem_file(case_name=self.case_name, case_route=self.case_route)
-        self.aero.save_files(case_name=self.case_name, case_route=self.case_route)
+        if self.aero is not None:
+            self.aero.save_files(case_name=self.case_name, case_route=self.case_route)
 
 
 def view_wing(case_name, case_route='./', output_folder='./output/'):
@@ -119,7 +129,7 @@ def view_wing(case_name, case_route='./', output_folder='./output/'):
         'wake_shape_generator': 'StraightWake',
         'wake_shape_generator_input': {'u_inf': 10,
                                        'u_inf_direction': [1, 0, 0],
-                                       'dt': 0.1}}
+                                       'dt': 0.01}}
 
 
     settings['Modal'] = {'folder': output_folder,
