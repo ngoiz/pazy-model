@@ -55,7 +55,7 @@ class PazyWing:
     def save_config(self):
         self.config.write()
 
-    def _get_ea_reference_line(self):
+    def get_ea_reference_line(self):
 
         if self.settings['skin_on']:
             ea = 0.5310
