@@ -46,7 +46,7 @@ class PazyAero:
         self.pct_flap = 0.2
         cs_deflection = [0, 0]
         self.n_control_surfaces = len(cs_deflection)
-        self.control_surface = np.zeros((self.num_node_tot, 3), dtype=int) - 1
+        self.control_surface = np.zeros((self.num_elem_tot, 3), dtype=int) - 1
         self.control_surface_deflection = np.zeros(self.n_control_surfaces, dtype=float)
         for i in range(len(cs_deflection)):
             self.control_surface_deflection[i] = cs_deflection[i] * np.pi / 180
@@ -80,7 +80,7 @@ class PazyAero:
             for i_surf in range(2):
                 for i_elem in range(num_elem_surf):
                     for i_local_node in range(self.num_node_elem):
-                        if i_elem >= int(num_elem_surf *(1- pct_flap)):
+                        if i_elem >= int(num_elem_surf * (1 - pct_flap)):
                             if i_surf == 0:
                                 control_surface[ws_elem + i_elem, i_local_node] = 0  # Right flap
                             else:
