@@ -528,13 +528,14 @@ class PazyStructure:
         new_connectivities = np.zeros_like(self.connectivities)
         new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
         new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
-        new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node -1, 2)
+        new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
         # join
         new_connectivities[-1, 1] = 0
 
         self.connectivities = np.concatenate((self.connectivities, new_connectivities))
 
         self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
+        self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
 
         self.n_elem *= 2
         self.n_node = 2 * self.n_node - 1
