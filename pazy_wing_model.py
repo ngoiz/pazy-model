@@ -67,7 +67,8 @@ class PazyWing:
         else:
             ea = 0.4410
 
-        return ea
+        # return ea
+        return 0.5
 
     def generate_structure(self):
         pazy = PazyStructure(**self.settings)

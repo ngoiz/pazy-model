@@ -138,7 +138,7 @@ class PazyStructure:
         n_mass = len(nodal_mass)
         c_gb = np.zeros((n_mass, 3), dtype=float)
         c_gb[:, 1] = -df['cgx']
-        c_gb[:, 0] = df['cgy'] # change indices for SHARPy B frame, original in A frame
+        c_gb[:, 0] = df['cgy']  # change indices for SHARPy B frame, original in A frame
         c_gb[:, 2] = df['cgz']
 
         mass_data_nodes = np.zeros((n_mass, 6, 6), dtype=float)
@@ -146,12 +146,12 @@ class PazyStructure:
         mass_data_nodes[:, 1, 1] = nodal_mass
         mass_data_nodes[:, 2, 2] = nodal_mass
 
-        cg_factor = 1
+        cg_factor = 0
         for i in range(n_mass):
             mass_data_nodes[i, :3, 3:] = -algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
             mass_data_nodes[i, 3:, :3] = algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
 
-        cross_term_factor = 1
+        cross_term_factor = 0
         # inertia data expressed in A frame and required in B frame
         mass_data_nodes[:, 4, 4] = df['Ixx']
         mass_data_nodes[:, 3, 3] = df['Iyy']
@@ -296,21 +296,21 @@ class PazyStructure:
             self.mass_db[i_elem, 0, 0] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 1, 1] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 2, 2] = sharpy_mu_elem[i_elem]
-            self.mass_db[i_elem, :3, 3:] = -algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
-            self.mass_db[i_elem, 3:, :3] = algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
+            self.mass_db[i_elem, :3, 3:] = -algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem] * cg_factor
+            self.mass_db[i_elem, 3:, :3] = algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem] * cg_factor
 
             self.mass_db[i_elem, 3, 3] = sharpy_inertia_elem[i_elem, 0]
             self.mass_db[i_elem, 4, 4] = sharpy_inertia_elem[i_elem, 1]
             self.mass_db[i_elem, 5, 5] = sharpy_inertia_elem[i_elem, 2]
 
-            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3]
-            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3]
+            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor * 0
+            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor * 0
 
-            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5]
-            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5]
+            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor * 0
+            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor * 0
 
-            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4]
-            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4]
+            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor * 0
+            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor * 0
 
         if self.debug:
             np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
@@ -364,7 +364,7 @@ class PazyStructure:
 
         # cross terms
 
-        cross_term_factor = 1
+        cross_term_factor = 0
         um_stiffness[:, 0, 3] = df['K12'] * cross_term_factor
         um_stiffness[:, 3, 0] = df['K12'] * cross_term_factor
 
@@ -526,55 +526,83 @@ class PazyStructure:
         if self.mirrored:
             print('wing already mirrored')
             return 0
+
+        switch_for = True
         new_connectivities = np.zeros_like(self.connectivities)
-        new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
-        new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
-        new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
-        # join
-        new_connectivities[-1, 1] = 0
+        if not switch_for:
+            new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
+            new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
+            new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
+            # join
+            new_connectivities[-1, 1] = 0
+        else:
+        # >>>>>>>>>>>
+            new_connectivities[:, 0] = np.arange(self.n_node - 1 , 2 * self.n_node - 3, 2)
+            new_connectivities[:, 1] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
+            new_connectivities[:, 2] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
+            new_connectivities[0, 0] = 0
+        # <<<<<<<<<<
 
         self.connectivities = np.concatenate((self.connectivities, new_connectivities))
 
         self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
-        self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
-
+        if not switch_for:
+            self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
+        # >>>>>>>
+        else:
+            self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:]))
+        # <<<<<<<
         self.n_elem *= 2
         self.n_node = 2 * self.n_node - 1
 
-        rev_y = -self.y[1:][::-1]
+        # >>>>>>>>>>>
+        if not switch_for:
+            rev_y = -self.y[1:][::-1]
+        else:
+            rev_y = -self.y[1:]
+        # <<<<<<<<<<
         self.y = np.concatenate((self.y, rev_y))
 
         self.beam_number = np.concatenate((self.beam_number, self.beam_number + 1))
         self.structural_twist = np.zeros((self.n_elem, self.num_node_elem))
 
-        self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:][::-1]))
+        # >>>>>>>
+        if not switch_for:
+            self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:][::-1]))
+        # <<<<<<<
+        else:
+            self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:]))
 
         self.frame_of_reference_delta = np.concatenate((self.frame_of_reference_delta, self.frame_of_reference_delta))
-
-        # import pdb; pdb.set_trace()
+        # >>>>>>>
+        if switch_for:
+            self.frame_of_reference_delta[self.n_elem//2:, :] *= -1
+        # <<<<<<<
         self.x = np.zeros_like(self.y)
         self.z = np.zeros_like(self.y)
 
         # mirror stiffness matrix
         self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
-        self.elem_stiffness = np.arange(0, self.n_elem)
+        self.elem_stiffness = np.arange(0, self.n_elem) * 0
 
-        self.stiffness_db[self.n_elem//2:, 0, 3] *= -1 # axial - torsion
-        self.stiffness_db[self.n_elem//2:, 3, 0] *= -1 # checked
+        self.stiffness_db[self.n_elem//2:, 0, 3] *= -1  # axial - torsion
+        self.stiffness_db[self.n_elem//2:, 3, 0] *= -1  # checked
 
         self.stiffness_db[self.n_elem//2:, 3, 4:] *= -1
-        self.stiffness_db[self.n_elem//2:, 4:, 3] *= -1 # torsion cross terms
+        self.stiffness_db[self.n_elem//2:, 4:, 3] *= -1  # torsion cross terms
 
         # mirror inertia matrix
         self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
-        self.elem_mass = np.arange(0, self.n_elem)
+        self.elem_mass = np.arange(0, self.n_elem) * 0
 
         self.mass_db[self.n_elem//2:, 3, 4:] *= -1
         self.mass_db[self.n_elem//2:, 4:, 3] *= -1
 
+        # cg x component mirror in upper right partition
         self.mass_db[self.n_elem//2:, 1, 5] *= -1
         self.mass_db[self.n_elem//2:, 2, 4] *= -1
 
+        # cg x component mirror in lower left partition
         self.mass_db[self.n_elem//2:, 5, 1] *= -1
         self.mass_db[self.n_elem//2:, 4, 2] *= -1
 
