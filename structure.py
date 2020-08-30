@@ -364,7 +364,7 @@ class PazyStructure:
 
         # cross terms
 
-        cross_term_factor = 0
+        cross_term_factor = 1
         um_stiffness[:, 0, 3] = df['K12'] * cross_term_factor
         um_stiffness[:, 3, 0] = df['K12'] * cross_term_factor
 
@@ -521,13 +521,13 @@ class PazyStructure:
                 lumped_mass_position_handle = h5file.create_dataset(
                     'lumped_mass_position', data=self.lumped_mass_position)
 
-    def mirror_wing(self):
+    def mirror_wing(self, switch_for=False):
         #mirror on xa-za plane
         if self.mirrored:
             print('wing already mirrored')
             return 0
 
-        switch_for = True
+        # switch_for = True
         new_connectivities = np.zeros_like(self.connectivities)
         if not switch_for:
             new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
@@ -545,11 +545,12 @@ class PazyStructure:
 
         self.connectivities = np.concatenate((self.connectivities, new_connectivities))
 
-        self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
         if not switch_for:
             self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
+            self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
         # >>>>>>>
         else:
+            self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass))
             self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:]))
         # <<<<<<<
         self.n_elem *= 2
@@ -582,14 +583,46 @@ class PazyStructure:
         self.z = np.zeros_like(self.y)
 
         # mirror stiffness matrix
-        self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
-        self.elem_stiffness = np.arange(0, self.n_elem) * 0
+        if not switch_for:
+            self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
+            self.elem_stiffness = np.arange(0, self.n_elem)
 
-        self.stiffness_db[self.n_elem//2:, 0, 3] *= -1  # axial - torsion
-        self.stiffness_db[self.n_elem//2:, 3, 0] *= -1  # checked
+            # K34 - checked
+            self.stiffness_db[self.n_elem//2:, 4, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 4] *= -1
 
-        self.stiffness_db[self.n_elem//2:, 3, 4:] *= -1
-        self.stiffness_db[self.n_elem//2:, 4:, 3] *= -1  # torsion cross terms
+            # K24 - checked
+            self.stiffness_db[self.n_elem//2:, 3, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 3] *= -1
+
+            # K23 - checked
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+
+            # K14 - checked
+            self.stiffness_db[self.n_elem//2:, 0, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 0] *= -1
+
+        else:
+            self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db))
+            self.elem_stiffness = np.arange(0, self.n_elem)
+
+            # K12 - axial/torsion (checked)
+            self.stiffness_db[self.n_elem//2:, 0, 3] *= -1
+            self.stiffness_db[self.n_elem//2:, 3, 0] *= -1
+
+            # K23 - torsion/in-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+            self.stiffness_db[self.n_elem//2:, 4, 3] *= -1
+
+            # K34 - in-plane/out-of-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 4, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 4] *= -1
+
+            # K14 - axial/out-of-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 0, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 0] *= -1
+
 
         # mirror inertia matrix
         self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
