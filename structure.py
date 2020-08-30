@@ -146,12 +146,12 @@ class PazyStructure:
         mass_data_nodes[:, 1, 1] = nodal_mass
         mass_data_nodes[:, 2, 2] = nodal_mass
 
-        cg_factor = 0
+        cg_factor = 1
         for i in range(n_mass):
             mass_data_nodes[i, :3, 3:] = -algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
             mass_data_nodes[i, 3:, :3] = algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
 
-        cross_term_factor = 0
+        cross_term_factor = 1
         # inertia data expressed in A frame and required in B frame
         mass_data_nodes[:, 4, 4] = df['Ixx']
         mass_data_nodes[:, 3, 3] = df['Iyy']
@@ -303,14 +303,14 @@ class PazyStructure:
             self.mass_db[i_elem, 4, 4] = sharpy_inertia_elem[i_elem, 1]
             self.mass_db[i_elem, 5, 5] = sharpy_inertia_elem[i_elem, 2]
 
-            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor * 0
-            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor * 0
+            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor
+            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor
 
-            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor * 0
-            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor * 0
+            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor
+            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor
 
-            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor * 0
-            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor * 0
+            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor
+            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor
 
         if self.debug:
             np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
@@ -625,19 +625,62 @@ class PazyStructure:
 
 
         # mirror inertia matrix
-        self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
-        self.elem_mass = np.arange(0, self.n_elem) * 0
+        if not switch_for:
+            self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
+            self.elem_mass = np.arange(0, self.n_elem)
 
-        self.mass_db[self.n_elem//2:, 3, 4:] *= -1
-        self.mass_db[self.n_elem//2:, 4:, 3] *= -1
+            # 45 - Iyz - checked
+            self.mass_db[self.n_elem//2:, 4, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 4] *= -1
 
-        # cg x component mirror in upper right partition
-        self.mass_db[self.n_elem//2:, 1, 5] *= -1
-        self.mass_db[self.n_elem//2:, 2, 4] *= -1
+            # 35 - Ixz - checked
+            self.mass_db[self.n_elem//2:, 3, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 3] *= -1
 
-        # cg x component mirror in lower left partition
-        self.mass_db[self.n_elem//2:, 5, 1] *= -1
-        self.mass_db[self.n_elem//2:, 4, 2] *= -1
+            # cg x component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 1, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 4] *= -1
+
+            # cg x component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 1] *= -1
+            self.mass_db[self.n_elem//2:, 4, 2] *= -1
+
+            # cg y component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 0, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 3] *= -1
+
+            # cg y component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 0] *= -1
+            self.mass_db[self.n_elem//2:, 3, 2] *= -1
+        else:
+            self.mass_db = np.concatenate((self.mass_db, self.mass_db))
+            self.elem_mass = np.arange(0, self.n_elem)
+
+            # 45 - Iyz - checked
+            self.mass_db[self.n_elem//2:, 4, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 4] *= -1
+
+            # 34 - Ixy - checked
+            self.mass_db[self.n_elem//2:, 4, 3] *= -1
+            self.mass_db[self.n_elem//2:, 3, 4] *= -1
+
+            # cg x component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 1, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 4] *= -1
+
+            # cg x component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 1] *= -1
+            self.mass_db[self.n_elem//2:, 4, 2] *= -1
+
+            # cg y component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 0, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 3] *= -1
+
+            # cg y component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 0] *= -1
+            self.mass_db[self.n_elem//2:, 3, 2] *= -1
+
+
 
         self.mirrored = True
 
