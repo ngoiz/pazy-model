@@ -8,7 +8,7 @@ elif test -n "$BASH_VERSION"; then
 fi
 
 export PATH=$SCRIPTPATH:$PATH
-echo "SHARPy added to PATH from the directory: "$SCRIPTPATH
+echo "PAZY added to PATH from the directory: "$SCRIPTPATH
 
 SCRIPTPATH=$SCRIPTPATH"/.."
 export PYTHONPATH=$SCRIPTPATH:$PYTHONPATH
