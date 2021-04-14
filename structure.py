@@ -11,7 +11,8 @@ class PazyStructure:
     def __init__(self, **kwargs):
         # settings
         local_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-        self.source_path = local_path + '/src/'
+        self.model_id = kwargs.get('model_id', 'pazy')
+        self.source_path = local_path + '/src/' + self.model_id + '/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.init_discretisation = kwargs.get('num_elem', 2)
