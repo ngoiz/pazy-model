@@ -11,7 +11,8 @@ class PazyStructure:
     def __init__(self, **kwargs):
         # settings
         local_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-        self.source_path = local_path + '/src/'
+        self.model = kwargs.get('model', 'Technion')
+        self.source_path = local_path + '/src/' + self.model + '/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.init_discretisation = kwargs.get('num_elem', 2)
@@ -60,7 +61,11 @@ class PazyStructure:
     def coordinates(self, method_tuple):
 
         method, discretisation = method_tuple
-        coords_file = self.source_path + 'coordinates_{}_skin.xlsx'.format(self._get_skin())
+        
+        if self.model == 'Technicon':
+            coords_file = self.source_path + 'coordinates_{}_skin.xlsx'.format(self._get_skin())
+        else:
+            coords_file = self.source_path + 'coordinates.xlsx'
         df = pd.read_excel(io=coords_file)
 
         x = np.array(df['x'], dtype=float)
@@ -130,10 +135,14 @@ class PazyStructure:
 
     def load_mass(self):
 
-        mass_file = self.source_path + 'inertia_{}_skin.xlsx'.format(self._get_skin())
+        if self.model == 'Technion':
+            mass_file = self.source_path + 'inertia_{}_skin.xlsx'.format(self._get_skin())
+        else:
+            mass_file = self.source_path + 'inertia.xlsx'
         df = pd.read_excel(io=mass_file)
 
         nodal_mass = np.array(df['mass'], dtype=float)
+        nodal_mass *= 1.
         n_mass = len(nodal_mass)
         c_gb = np.zeros((n_mass, 3), dtype=float)
         c_gb[:, 1] = -df['cgx']
@@ -334,7 +343,10 @@ class PazyStructure:
 
     def load_stiffness(self):
 
-        stiffness_file = self.source_path + 'stiffness_{}_skin.xlsx'.format(self._get_skin())
+        if self.model == 'Technion':
+            stiffness_file = self.source_path + 'stiffness_{}_skin.xlsx'.format(self._get_skin())
+        else:
+            stiffness_file = self.source_path + 'stiffness.xlsx'
         df = pd.read_excel(io=stiffness_file)
 
         ea = df['K11']
