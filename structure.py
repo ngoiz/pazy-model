@@ -62,7 +62,7 @@ class PazyStructure:
 
         method, discretisation = method_tuple
         
-        if self.model == 'Technicon':
+        if self.model == 'Technion':
             coords_file = self.source_path + 'coordinates_{}_skin.xlsx'.format(self._get_skin())
         else:
             coords_file = self.source_path + 'coordinates.xlsx'
