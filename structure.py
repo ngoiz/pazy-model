@@ -11,8 +11,8 @@ class PazyStructure:
     def __init__(self, **kwargs):
         # settings
         local_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-        self.model = kwargs.get('model', 'Technion')
-        self.source_path = local_path + '/src/' + self.model + '/'
+        self.model_id = kwargs.get('model_id', 'pazy')
+        self.source_path = local_path + '/src/' + self.model_id + '/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.init_discretisation = kwargs.get('num_elem', 2)
@@ -49,7 +49,8 @@ class PazyStructure:
 
         self.source = dict()
 
-        self.debug = False
+        self.debug = True
+        self.path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
 
     def generate(self):
         self.coordinates(method_tuple=(self.discretisation_method, self.init_discretisation))
@@ -122,8 +123,8 @@ class PazyStructure:
         self.connectivities[:, 2] = np.arange(1, self.n_node - 1, 2)
 
         if self.debug:
-            np.savetxt('./coords_sharpy.txt', np.column_stack((self.x, self.y, self.z)))
-            np.savetxt('./coords_um.txt', self.source['coords'])
+            np.savetxt(self.path + '/coords_sharpy.txt', np.column_stack((self.x, self.y, self.z)))
+            np.savetxt(self.path + '/coords_um.txt', self.source['coords'])
 
     def _get_skin(self):
         if self.skin:
@@ -145,35 +146,13 @@ class PazyStructure:
         nodal_mass *= 1.
         n_mass = len(nodal_mass)
         c_gb = np.zeros((n_mass, 3), dtype=float)
-        c_gb[:, 1] = -df['cgx']
-        c_gb[:, 0] = df['cgy'] # change indices for SHARPy B frame, original in A frame
-        c_gb[:, 2] = df['cgz']
-
-        mass_data_nodes = np.zeros((n_mass, 6, 6), dtype=float)
-        mass_data_nodes[:, 0, 0] = nodal_mass
-        mass_data_nodes[:, 1, 1] = nodal_mass
-        mass_data_nodes[:, 2, 2] = nodal_mass
-
         cg_factor = 1
-        for i in range(n_mass):
-            mass_data_nodes[i, :3, 3:] = -algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
-            mass_data_nodes[i, 3:, :3] = algebra.skew(mass_data_nodes[i, 0, 0] * c_gb[i]) * cg_factor
+        c_gb[:, 1] = -df['cgx']
+        c_gb[:, 0] = df['cgy']  # change indices for SHARPy B frame, original in A frame
+        c_gb[:, 2] = df['cgz']
 
         cross_term_factor = 1
         # inertia data expressed in A frame and required in B frame
-        mass_data_nodes[:, 4, 4] = df['Ixx']
-        mass_data_nodes[:, 3, 3] = df['Iyy']
-        mass_data_nodes[:, 5, 5] = df['Izz']
-
-        mass_data_nodes[:, 3, 4] = -df['Ixy'] * cross_term_factor
-        mass_data_nodes[:, 4, 3] = -df['Ixy'] * cross_term_factor
-
-        mass_data_nodes[:, 4, 5] = -df['Ixz'] * cross_term_factor
-        mass_data_nodes[:, 5, 4] = -df['Ixz'] * cross_term_factor
-
-        mass_data_nodes[:, 3, 5] = df['Iyz'] * cross_term_factor
-        mass_data_nodes[:, 5, 3] = df['Iyz'] * cross_term_factor
-
         inertia_tensor = np.zeros((n_mass, 3, 3))
         inertia_tensor[:, 1, 1] = df['Ixx']
         inertia_tensor[:, 0, 0] = df['Iyy']
@@ -189,27 +168,9 @@ class PazyStructure:
         inertia_tensor[:, 2, 0] = df['Iyz'] * cross_term_factor
 
         if self.debug:
-            np.savetxt('./um_inertia.txt', np.column_stack((inertia_tensor[:, 0, 0],
+            np.savetxt(self.path + '/um_inertia.txt', np.column_stack((inertia_tensor[:, 0, 0],
                                                             inertia_tensor[:, 1, 1],
                                                             inertia_tensor[:, 2, 2])))
-
-        # interpolate for beam elems
-        # self.mass_db = np.zeros((self.n_elem, 6, 6), dtype=float)
-        # mass_elem = np.zeros(self.n_elem)
-        # inertia_elem = np.zeros((self.n_elem, 3, 3))
-        # elem_length = self.y[2] - self.y[0] # original UM discretisation
-        # for i_elem in range(self.n_elem):
-        #     if i_elem == 0:
-        #         mass_elem[i_elem] = (nodal_mass[i_elem] + 0.5 * nodal_mass[i_elem + 1]) / elem_length
-        #         # inertia_elem =
-        #         self.mass_db[i_elem] = (mass_data_nodes[i_elem] + 0.5 * mass_data_nodes[i_elem + 1]) / 2 / (self.y[1] - self.y[0])
-        #     elif i_elem == self.n_elem - 1:
-        #         mass_elem[i_elem] = (0.5 * nodal_mass[i_elem] + nodal_mass[i_elem + 1]) / elem_length
-        #         self.mass_db[i_elem] = (0.5 * mass_data_nodes[i_elem] + mass_data_nodes[i_elem + 1]) / 2 / (
-        #                 self.y[1] - self.y[0])
-        #     else:
-        #         mass_elem[i_elem] = 0.5 * (nodal_mass[i_elem] + nodal_mass[i_elem + 1]) / elem_length
-        #         self.mass_db[i_elem] = 0.5 * (mass_data_nodes[i_elem] + mass_data_nodes[i_elem + 1]) / 2 / (self.y[1] - self.y[0])
 
         # equivalent distribute mass
         sharpy_element_ends = self.y[self.connectivities[:, 1]]
@@ -220,21 +181,15 @@ class PazyStructure:
         # distributed inertia
         um_distributed_inertia = np.zeros((n_mass, 6))
 
-        # list_of_inertias = [np.array(df['Iyy']),
-        #                     np.array(df['Ixx']),
-        #                     np.array(df['Izz']),
-        #                     np.array(df['Ixy']),
-        #                     np.array(df['Iyz']),
-        #                     np.array(df['Ixz'])]
+        transformed_inertia = self.transform_inertia(inertia_tensor, nodal_mass, c_gb, np.zeros_like(self.source['coords']))
+        list_of_inertias = [transformed_inertia[:, 0, 0],  # Ixx
+                            transformed_inertia[:, 1, 1],  # Iyy
+                            transformed_inertia[:, 2, 2],  # Izz
+                            transformed_inertia[:, 0, 1],  # Ixy
+                            transformed_inertia[:, 0, 2],  # Ixz
+                            transformed_inertia[:, 1, 2]]  # Iyz
 
-        transformed_inertia = self.transform_inertia(inertia_tensor, nodal_mass, c_gb, self.source['coords']*0)
-        list_of_inertias = [transformed_inertia[:, 0, 0],
-                            transformed_inertia[:, 1, 1],
-                            transformed_inertia[:, 2, 2],
-                            transformed_inertia[:, 0, 1],
-                            transformed_inertia[:, 0, 2],
-                            transformed_inertia[:, 1, 2]]
-
+        cg_eq = np.zeros((n_mass, 3))
         for i_um_node in range(1, len(um_element_ends)-1):
             if i_um_node == 1:
                 # first node
@@ -244,6 +199,10 @@ class PazyStructure:
                     um_distributed_inertia[i_um_node, i] = list_of_inertias[i][i_um_node] / (0.5 * um_elem_length[i_um_node] + 0.5 * um_elem_length[i_um_node - 1])
                     um_distributed_inertia[0, i] = list_of_inertias[i][0] / (0.5 * um_elem_length[0])
 
+                tm = (nodal_mass[i_um_node] + nodal_mass[i_um_node - 1])
+                cg_eq[i_um_node, :] = (nodal_mass[i_um_node] * c_gb[i_um_node, :] + nodal_mass[i_um_node - 1] * c_gb[i_um_node, :]) / tm
+
+                cg_eq[0] = c_gb[0]
             elif i_um_node == len(um_elem_length) - 2:
                 um_distributed_mass[i_um_node] = nodal_mass[i_um_node] / (0.5 * um_elem_length[i_um_node] + 0.5 * um_elem_length[i_um_node - 1])
                 um_distributed_mass[-1] = nodal_mass[-1] / (0.5 * um_elem_length[-1])
@@ -251,11 +210,20 @@ class PazyStructure:
                     um_distributed_inertia[i_um_node, i] = list_of_inertias[i][i_um_node] / (0.5 * um_elem_length[i_um_node] + 0.5 * um_elem_length[i_um_node - 1])
                     um_distributed_inertia[-1, i] = list_of_inertias[i][-1] / (0.5 * um_elem_length[-1])
 
+                tm = (nodal_mass[i_um_node] + nodal_mass[i_um_node - 1])
+                cg_eq[i_um_node, :] = (nodal_mass[i_um_node] * c_gb[i_um_node, :] + nodal_mass[i_um_node - 1] * c_gb[i_um_node, :]) / tm
+
+                cg_eq[-1] = c_gb[-1]
             else:
                 um_distributed_mass[i_um_node] = nodal_mass[i_um_node] / (0.5 * um_elem_length[i_um_node] + 0.5 * um_elem_length[i_um_node - 1])
 
                 for i in range(6):
                     um_distributed_inertia[i_um_node, i] = list_of_inertias[i][i_um_node] / (0.5 * um_elem_length[i_um_node] + 0.5 * um_elem_length[i_um_node - 1])
+
+                tm = (nodal_mass[i_um_node] + nodal_mass[i_um_node - 1])
+                cg_eq[i_um_node, :] = (nodal_mass[i_um_node] * c_gb[i_um_node, :] + nodal_mass[i_um_node - 1] * c_gb[i_um_node, :]) / tm
+
+        print(um_distributed_mass)
 
         sharpy_mu_elem = np.zeros(self.n_elem)
         mid_elem = np.zeros((self.n_elem, 3))
@@ -265,6 +233,12 @@ class PazyStructure:
 
         sharpy_elem_length = np.zeros(self.n_elem)
         # i_um = 0
+
+        # Overall CG
+        cab = algebra.crv2rotation([0, 0, np.pi/2])
+        um_rcg_a = self.source['coords'] + [cab.dot(c_gb[i_node]) for i_node in range(c_gb.shape[0])]
+
+        sharpy_cg_elem = np.zeros((self.n_elem, 3))
         for i_elem in range(self.n_elem):
             mid_elem[i_elem] = coords[self.connectivities[i_elem, -1]]
             sharpy_elem_length[i_elem] = coords[self.connectivities[i_elem, 1], 1] - coords[self.connectivities[i_elem, 0], 1]
@@ -274,22 +248,39 @@ class PazyStructure:
             for i in range(6):
                 sharpy_inertia_elem[i_elem, i] = np.interp(mid_elem[i_elem, 1], self.source['y'], um_distributed_inertia[:, i])
 
-            # if mid_elem[i_elem, 1] > (0.5 * (self.source['y'][i_um+1] - self.source['y'][i_um]) + self.source['y'][i_um]):
-            #     i_um += 1
-            # current_mu = um_distributed_mass[i_um]
-            # sharpy_mu_elem[i_elem] = current_mu
+            k_ax = ['x', 'y', 'z']
+            cg_a = np.zeros(3)
+            cg_b = np.zeros(3)
+            for i in range(3):
+                # elem_im = coords[self.connectivities[i_elem, 0]]
+                # elem_ip = coords[self.connectivities[i_elem, 1]]
+                # mass_im = np.interp(elem_im[1], self.source['y'], nodal_mass)
+                # mass_ip = np.interp(elem_ip[1], self.source['y'], nodal_mass)
+                # r_im = np.interp(elem_im, self.source['y'], c_gb[:, i])[i]
+                # r_ip = np.interp(elem_ip, self.source['y'], c_gb[:, i])[i]
+                # sharpy_cg_elem[i_elem, i] = (mass_im * r_im + mass_ip * r_ip) / (mass_ip + mass_im)
+                if i_elem == self.n_elem - 1:
+                    moment_a = um_rcg_a[-1, i] * nodal_mass[-1]
+                    cg_a[i] = moment_a / nodal_mass[-1]
+                else:
+                    moment_a = np.interp(mid_elem[i_elem, 1], self.source['y'], um_rcg_a[:, i] * nodal_mass)
+                    cg_a[i] = moment_a / np.interp(mid_elem[i_elem, 1], self.source['y'], nodal_mass)
+            print(cg_a)
+
+            cg_b = cab.T.dot(cg_a - mid_elem[i_elem])
+            sharpy_cg_elem[i_elem] = cg_b
 
         if self.debug:
-            np.savetxt('./um_nodal_mass.txt', nodal_mass)
-            np.savetxt('./um_distributed_mass.txt', um_distributed_mass)
+            np.savetxt(self.path + '/um_nodal_mass.txt', nodal_mass)
+            np.savetxt(self.path + '/um_distributed_mass.txt', um_distributed_mass)
 
-            np.savetxt('./sharpy_distributed_mass.txt', sharpy_mu_elem)
-            np.savetxt('./sharpy_mid_elem_coord.txt', mid_elem)
-            np.savetxt('./sharpy_elem_length.txt', sharpy_elem_length)
+            np.savetxt(self.path + '/sharpy_distributed_mass.txt', sharpy_mu_elem)
+            np.savetxt(self.path + '/sharpy_mid_elem_coord.txt', mid_elem)
+            np.savetxt(self.path + '/sharpy_elem_length.txt', sharpy_elem_length)
 
-            np.savetxt('./um_distributed_inertia.txt', um_distributed_inertia)
-            np.savetxt('./um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
-            np.savetxt('./sharpy_distributed_inertia.txt', sharpy_inertia_elem)
+            np.savetxt(self.path + '/um_distributed_inertia.txt', um_distributed_inertia)
+            np.savetxt(self.path + '/um_transformed_inertia.txt', np.column_stack(tuple(list_of_inertias)))
+            np.savetxt(self.path + '/sharpy_distributed_inertia.txt', sharpy_inertia_elem)
 
         # interpolate CG position of the beam element from the cg origin data
         cg_elem = np.zeros((self.n_elem, 3))
@@ -298,31 +289,68 @@ class PazyStructure:
         self.mass_db = np.zeros((self.n_elem, 6, 6), dtype=float)
         for i_elem in range(self.n_elem):
             mid_elem[i_elem] = coords[self.connectivities[i_elem, -1]]
-            for i in range(3):
-                cg_elem[i_elem, i] = np.interp(mid_elem[i_elem, 1], self.source['coords'][:, 1], c_gb[:, i])
+            # for i in range(3):
+            #     cg_elem[i_elem, i] = np.interp(mid_elem[i_elem, 1], self.source['coords'][:, 1], c_gb[:, i])
+            cg_elem[i_elem] = sharpy_cg_elem[i_elem]
 
             self.mass_db[i_elem, 0, 0] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 1, 1] = sharpy_mu_elem[i_elem]
             self.mass_db[i_elem, 2, 2] = sharpy_mu_elem[i_elem]
-            self.mass_db[i_elem, :3, 3:] = -algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
-            self.mass_db[i_elem, 3:, :3] = algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem]
+            self.mass_db[i_elem, :3, 3:] = -algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem] * cg_factor
+            self.mass_db[i_elem, 3:, :3] = algebra.skew(cg_elem[i_elem, :]) * sharpy_mu_elem[i_elem] * cg_factor
 
             self.mass_db[i_elem, 3, 3] = sharpy_inertia_elem[i_elem, 0]
             self.mass_db[i_elem, 4, 4] = sharpy_inertia_elem[i_elem, 1]
             self.mass_db[i_elem, 5, 5] = sharpy_inertia_elem[i_elem, 2]
 
-            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3]
-            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3]
+            self.mass_db[i_elem, 3, 4] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor
+            self.mass_db[i_elem, 4, 3] = sharpy_inertia_elem[i_elem, 3] * cross_term_factor
 
-            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5]
-            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5]
+            self.mass_db[i_elem, 4, 5] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor
+            self.mass_db[i_elem, 5, 4] = sharpy_inertia_elem[i_elem, 5] * cross_term_factor
 
-            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4]
-            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4]
+            self.mass_db[i_elem, 3, 5] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor
+            self.mass_db[i_elem, 5, 3] = sharpy_inertia_elem[i_elem, 4] * cross_term_factor
 
         if self.debug:
-            np.savetxt('./cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
-            np.savetxt('./cg_um.txt', np.column_stack((self.source['y'], c_gb)))
+            np.savetxt(self.path + '/cg_sharpy.txt', np.column_stack((mid_elem[:, 1], cg_elem)))
+            np.savetxt(self.path + '/cg_um.txt', np.column_stack((self.source['y'], c_gb)))
+
+
+        # Testing
+        # import pdb; pdb.set_trace()
+        mass_um = np.sum(nodal_mass)
+        mass_sharpy = np.sum(sharpy_mu_elem * sharpy_elem_length)
+        mass_diff = np.abs(mass_um - mass_sharpy)
+        np.testing.assert_allclose(mass_diff, 0, err_msg='Mass not equal UM-ICL',
+                                   atol=1e-8)
+
+        # Overall CG
+        cab = algebra.crv2rotation([0, 0, np.pi/2])
+
+        um_rcg_a = self.source['coords'] + [cab.dot(c_gb[i_node]) for i_node in range(c_gb.shape[0])]
+        # print(um_rcg_a)
+        um_moment = 0
+        for i_node in range(len(nodal_mass)):
+            um_moment += um_rcg_a[i_node] * nodal_mass[i_node]
+
+        um_cg = um_moment / mass_um
+
+        # sharpy_cg
+        sharpy_rcg_a = mid_elem
+        sharpy_moment = 0
+        for i_elem in range(sharpy_rcg_a.shape[0]):
+            sharpy_rcg_a[i_elem] += cab.dot(cg_elem[i_elem])
+            sharpy_moment += sharpy_rcg_a[i_elem] * sharpy_mu_elem[i_elem] * sharpy_elem_length[i_elem]
+
+        sharpy_cg = sharpy_moment / mass_sharpy
+
+        cg_diff = um_cg - sharpy_cg
+        print('UM', um_cg)
+        print('SHARPy',sharpy_cg)
+        print('Abs Diff', cg_diff)
+        print('Rel Diff', cg_diff / um_cg * 100)
+        # breakpoint()
 
     def transform_inertia(self, inertia_tensor_array, m_node, cg, r_node):
 
@@ -536,62 +564,166 @@ class PazyStructure:
         # switch y and z coordinates to make wing vertical
         self.y, self.z = self.z.copy(), self.y.copy()
 
-    def mirror_wing(self):
+    def mirror_wing(self, switch_for=False):
         #mirror on xa-za plane
         if self.mirrored:
             print('wing already mirrored')
             return 0
+
+        # switch_for = True
         new_connectivities = np.zeros_like(self.connectivities)
-        new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
-        new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
-        new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
-        # join
-        new_connectivities[-1, 1] = 0
+        if not switch_for:
+            new_connectivities[:, 0] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
+            new_connectivities[:, 1] = np.arange(self.n_node + 2, 2 * self.n_node, 2)
+            new_connectivities[:, 2] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
+            # join
+            new_connectivities[-1, 1] = 0
+        else:
+        # >>>>>>>>>>>
+            new_connectivities[:, 0] = np.arange(self.n_node - 1 , 2 * self.n_node - 3, 2)
+            new_connectivities[:, 1] = np.arange(self.n_node + 1, 2 * self.n_node - 1, 2)
+            new_connectivities[:, 2] = np.arange(self.n_node, 2 * self.n_node - 2, 2)
+            new_connectivities[0, 0] = 0
+        # <<<<<<<<<<
 
         self.connectivities = np.concatenate((self.connectivities, new_connectivities))
 
-        self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
-        self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
-
+        if not switch_for:
+            self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:][::-1]))
+            self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass[::-1]))
+        # >>>>>>>
+        else:
+            self.elem_mass = np.concatenate((self.elem_mass, self.elem_mass))
+            self.app_forces = np.concatenate((self.app_forces, self.app_forces[1:]))
+        # <<<<<<<
         self.n_elem *= 2
         self.n_node = 2 * self.n_node - 1
 
-        rev_y = -self.y[1:][::-1]
+        # >>>>>>>>>>>
+        if not switch_for:
+            rev_y = -self.y[1:][::-1]
+        else:
+            rev_y = -self.y[1:]
+        # <<<<<<<<<<
         self.y = np.concatenate((self.y, rev_y))
 
         self.beam_number = np.concatenate((self.beam_number, self.beam_number + 1))
         self.structural_twist = np.zeros((self.n_elem, self.num_node_elem))
 
-        self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:][::-1]))
+        # >>>>>>>
+        if not switch_for:
+            self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:][::-1]))
+        # <<<<<<<
+        else:
+            self.boundary_conditions = np.concatenate((self.boundary_conditions, self.boundary_conditions[1:]))
 
         self.frame_of_reference_delta = np.concatenate((self.frame_of_reference_delta, self.frame_of_reference_delta))
-
-        # import pdb; pdb.set_trace()
+        # >>>>>>>
+        if switch_for:
+            self.frame_of_reference_delta[self.n_elem//2:, :] *= -1
+        # <<<<<<<
         self.x = np.zeros_like(self.y)
         self.z = np.zeros_like(self.y)
 
         # mirror stiffness matrix
-        self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
-        self.elem_stiffness = np.arange(0, self.n_elem)
+        if not switch_for:
+            self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db[::-1]))
+            self.elem_stiffness = np.arange(0, self.n_elem)
 
-        self.stiffness_db[self.n_elem//2:, 0, 3] *= -1 # axial - torsion
-        self.stiffness_db[self.n_elem//2:, 3, 0] *= -1 # checked
+            # K34 - checked
+            self.stiffness_db[self.n_elem//2:, 4, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 4] *= -1
 
-        self.stiffness_db[self.n_elem//2:, 3, 4:] *= -1
-        self.stiffness_db[self.n_elem//2:, 4:, 3] *= -1 # torsion cross terms
+            # K24 - checked
+            self.stiffness_db[self.n_elem//2:, 3, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 3] *= -1
+
+            # K23 - checked
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+
+            # K14 - checked
+            self.stiffness_db[self.n_elem//2:, 0, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 0] *= -1
+
+        else:
+            self.stiffness_db = np.concatenate((self.stiffness_db, self.stiffness_db))
+            self.elem_stiffness = np.arange(0, self.n_elem)
+
+            # K12 - axial/torsion (checked)
+            self.stiffness_db[self.n_elem//2:, 0, 3] *= -1
+            self.stiffness_db[self.n_elem//2:, 3, 0] *= -1
+
+            # K23 - torsion/in-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 3, 4] *= -1
+            self.stiffness_db[self.n_elem//2:, 4, 3] *= -1
+
+            # K34 - in-plane/out-of-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 4, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 4] *= -1
+
+            # K14 - axial/out-of-plane (checked)
+            self.stiffness_db[self.n_elem//2:, 0, 5] *= -1
+            self.stiffness_db[self.n_elem//2:, 5, 0] *= -1
+
 
         # mirror inertia matrix
-        self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
-        self.elem_mass = np.arange(0, self.n_elem)
+        if not switch_for:
+            self.mass_db = np.concatenate((self.mass_db, self.mass_db[::-1]))
+            self.elem_mass = np.arange(0, self.n_elem)
 
-        self.mass_db[self.n_elem//2:, 3, 4:] *= -1
-        self.mass_db[self.n_elem//2:, 4:, 3] *= -1
+            # 45 - Iyz - checked
+            self.mass_db[self.n_elem//2:, 4, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 4] *= -1
 
-        self.mass_db[self.n_elem//2:, 1, 5] *= -1
-        self.mass_db[self.n_elem//2:, 2, 4] *= -1
+            # 35 - Ixz - checked
+            self.mass_db[self.n_elem//2:, 3, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 3] *= -1
 
-        self.mass_db[self.n_elem//2:, 5, 1] *= -1
-        self.mass_db[self.n_elem//2:, 4, 2] *= -1
+            # cg x component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 1, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 4] *= -1
+
+            # cg x component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 1] *= -1
+            self.mass_db[self.n_elem//2:, 4, 2] *= -1
+
+            # cg y component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 0, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 3] *= -1
+
+            # cg y component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 0] *= -1
+            self.mass_db[self.n_elem//2:, 3, 2] *= -1
+        else:
+            self.mass_db = np.concatenate((self.mass_db, self.mass_db))
+            self.elem_mass = np.arange(0, self.n_elem)
+
+            # 45 - Iyz - checked
+            self.mass_db[self.n_elem//2:, 4, 5] *= -1
+            self.mass_db[self.n_elem//2:, 5, 4] *= -1
+
+            # 34 - Ixy - checked
+            self.mass_db[self.n_elem//2:, 4, 3] *= -1
+            self.mass_db[self.n_elem//2:, 3, 4] *= -1
+
+            # cg x component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 1, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 4] *= -1
+
+            # cg x component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 1] *= -1
+            self.mass_db[self.n_elem//2:, 4, 2] *= -1
+
+            # cg y component mirror in upper right partition - checked
+            self.mass_db[self.n_elem//2:, 0, 5] *= -1
+            self.mass_db[self.n_elem//2:, 2, 3] *= -1
+
+            # cg y component mirror in lower left partition - checked
+            self.mass_db[self.n_elem//2:, 5, 0] *= -1
+            self.mass_db[self.n_elem//2:, 3, 2] *= -1
+
+
 
         self.mirrored = True
 
