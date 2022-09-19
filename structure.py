@@ -532,6 +532,10 @@ class PazyStructure:
                 lumped_mass_position_handle = h5file.create_dataset(
                     'lumped_mass_position', data=self.lumped_mass_position)
 
+    def rotate_wing(self):
+        # switch y and z coordinates to make wing vertical
+        self.y, self.z = self.z.copy(), self.y.copy()
+
     def mirror_wing(self):
         #mirror on xa-za plane
         if self.mirrored:
