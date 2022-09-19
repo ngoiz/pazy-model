@@ -35,7 +35,7 @@ class PazyWing:
     model_settings_types['model_id'] = 'str'
     model_settings_default['model_id'] = 'pazy'
     model_settings_description['model_id'] = 'Wing model to use'
-    model_settings_options['model_id'] = ['prepazy', 'pazy']
+    model_settings_options['model_id'] = ['prepazy', 'pazy', 'delft']
 
     def __init__(self, case_name, case_route='./', in_settings=None):
         self.case_name = case_name
