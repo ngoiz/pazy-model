@@ -8,8 +8,8 @@ class PazyAero:
     def __init__(self, main_ea, pazy_structure, **kwargs):
         self.m = kwargs.get('surface_m', 4)
         self.n_surfaces = kwargs.get('num_surfaces', 2)
-
-        assert pazy_structure.mirrored is True, 'Pazy beam not mirrored'
+        self.symmetry_condition = kwargs.get('symmetry_condition', False)
+        assert pazy_structure.mirrored is True and self.symmetry_condition is False, 'Pazy beam not mirrored'
         self.num_elem_tot = pazy_structure.n_elem
         self.num_elem_surf = self.num_elem_tot // self.n_surfaces
         self.num_node_tot = pazy_structure.n_node + 1
