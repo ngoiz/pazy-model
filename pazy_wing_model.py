@@ -35,6 +35,8 @@ class PazyWing:
     model_settings_types['symmetry_condition'] = 'bool'
     model_settings_default['symmetry_condition'] = False
 
+ 
+
     model_settings_types['model_id'] = 'str'
     model_settings_default['model_id'] = 'pazy'
     model_settings_description['model_id'] = 'Wing model to use'
@@ -78,9 +80,10 @@ class PazyWing:
 
         self.structure = pazy
 
-    def generate_aero(self):
+    def generate_aero(self, polars=None):
         pazy_aero = aero.PazyAero(main_ea=self.get_ea_reference_line(),
                                   pazy_structure=self.structure,
+                                  polars=polars,
                                   **self.settings)
 
         pazy_aero.generate_aero()

@@ -9,7 +9,8 @@ class PazyAero:
         self.m = kwargs.get('surface_m', 4)
         self.n_surfaces = kwargs.get('num_surfaces', 2)
         self.symmetry_condition = kwargs.get('symmetry_condition', False)
-        assert pazy_structure.mirrored is True and self.symmetry_condition is False, 'Pazy beam not mirrored'
+        if not self.symmetry_condition:
+            assert pazy_structure.mirrored is True, 'Pazy beam not mirrored'
         self.num_elem_tot = pazy_structure.n_elem
         self.num_elem_surf = self.num_elem_tot // self.n_surfaces
         self.num_node_tot = pazy_structure.n_node + 1
@@ -42,6 +43,7 @@ class PazyAero:
         self.chord = None  # for .aero.h5 file in (num_elem, 3) format
         self.elastic_axis = None  # for .aero.h5 file in (num_elem, 3) format
 
+        self.polars = kwargs.get('polars', None)
         #control surface parameters
         self.pct_flap = 0.2
         cs_deflection = [0, 0]
@@ -52,6 +54,8 @@ class PazyAero:
             self.control_surface_deflection[i] = cs_deflection[i] * np.pi / 180
         self.control_surface_chord = self.m // 2 * np.ones(self.n_control_surfaces, dtype=int)
         self.control_surface_type = np.zeros(self.n_control_surfaces, dtype=int)
+
+        self.airfoil_efficiency =  np.zeros((self.num_elem_tot, 3, 2, 3), dtype=float) #num_elem, node_per_elem, rest see documentary
 
     def generate_aero(self):
 
@@ -112,6 +116,7 @@ class PazyAero:
 
         self.airfoils_surf = airfoils_surf
         self.airfoil_distribution = airfoil_distribution
+        self.airfoil_distribution *= 0
 
         ### others
         self.aero_node = np.ones((num_node_tot,), dtype=bool)
@@ -121,6 +126,7 @@ class PazyAero:
         self.chord = self.main_chord * np.ones((num_elem_tot, 3))
         self.elastic_axis = self.main_ea * np.ones((num_elem_tot, 3,))
         self.control_surface = control_surface
+        self.airfoil_efficiency[:,:,0,1] = 1.25 #fz
 
     def save_files(self, case_name, case_route='./'):
 
@@ -160,6 +166,11 @@ class PazyAero:
                     'control_surface_deflection', data=self.control_surface_deflection)
                 control_surface_chord_input = h5file.create_dataset(
                     'control_surface_chord', data=self.control_surface_chord)
-            # if airfoil_efficiency is not None:
-            #     a_eff_handle = h5file.create_dataset(
-            #         'airfoil_efficiency', data=airfoil_efficiency)
+            if self.airfoil_efficiency is not None:
+                a_eff_handle = h5file.create_dataset(
+                    'airfoil_efficiency', data=self.airfoil_efficiency)
+
+            if self.polars is not None:
+                polars_group = h5file.create_group('polars')
+                for i_airfoil in range(1):  # there is one airfoil
+                    polars_group.create_dataset('{:g}'.format(i_airfoil), data=self.polars[i_airfoil])
