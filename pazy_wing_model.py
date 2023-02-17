@@ -35,7 +35,8 @@ class PazyWing:
     model_settings_types['symmetry_condition'] = 'bool'
     model_settings_default['symmetry_condition'] = False
 
- 
+    model_settings_types['vertical'] = 'bool'
+    model_settings_default['vertical'] = False
 
     model_settings_types['model_id'] = 'str'
     model_settings_default['model_id'] = 'pazy'
