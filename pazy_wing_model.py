@@ -75,9 +75,10 @@ class PazyWing:
 
         self.structure = pazy
 
-    def generate_aero(self):
+    def generate_aero(self, polars=None):
         pazy_aero = aero.PazyAero(main_ea=self.get_ea_reference_line(),
                                   pazy_structure=self.structure,
+                                  polars=polars,
                                   **self.settings)
 
         pazy_aero.generate_aero()
