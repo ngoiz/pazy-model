@@ -32,6 +32,8 @@ class PazyWing:
     model_settings_types['num_surfaces'] = 'int'
     model_settings_default['num_surfaces'] = 2
 
+    model_settings_types['symmetry_condition'] = 'bool'
+    model_settings_default['symmetry_condition'] = False
 
     model_settings_types['model'] = 'str'
     model_settings_default['model'] = 'Technion'
