@@ -62,7 +62,7 @@ class PazyStructure:
 
         method, discretisation = method_tuple
         
-        if self.model != 'delft':
+        if self.model_id != 'delft':
             coords_file = self.source_path + 'coordinates_{}_skin.xlsx'.format(self._get_skin())
         else:
             coords_file = self.source_path + 'coordinates.xlsx'
@@ -135,7 +135,7 @@ class PazyStructure:
 
     def load_mass(self):
 
-        if self.model != 'delft':
+        if self.model_id != 'delft':
             mass_file = self.source_path + 'inertia_{}_skin.xlsx'.format(self._get_skin())
         else:
             mass_file = self.source_path + 'inertia.xlsx'
@@ -343,7 +343,7 @@ class PazyStructure:
 
     def load_stiffness(self):
 
-        if self.model != 'delft':
+        if self.model_id != 'delft':
             stiffness_file = self.source_path + 'stiffness_{}_skin.xlsx'.format(self._get_skin())
         else:
             stiffness_file = self.source_path + 'stiffness.xlsx'
