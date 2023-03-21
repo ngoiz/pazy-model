@@ -32,16 +32,16 @@ class PazyWing:
     model_settings_types['num_surfaces'] = 'int'
     model_settings_default['num_surfaces'] = 2
 
+    model_settings_types['model_id'] = 'str'
+    model_settings_default['model_id'] = 'pazy'
+    model_settings_description['model_id'] = 'Wing model to use'
+    model_settings_options['model_id'] = ['prepazy', 'pazy', 'delft']
+
     model_settings_types['symmetry_condition'] = 'bool'
     model_settings_default['symmetry_condition'] = False
 
-    model_settings_types['vertical'] = 'bool'
     model_settings_default['vertical'] = False
-
-    model_settings_types['model'] = 'str'
-    model_settings_default['model'] = 'Technion'
-    model_settings_description['model'] = 'Specifies which Pazy model, the one from Technion or TU Delft, is used.'
-
+    model_settings_types['vertical'] = 'bool'
     def __init__(self, case_name, case_route='./', in_settings=None):
         self.case_name = case_name
         self.case_route = case_route

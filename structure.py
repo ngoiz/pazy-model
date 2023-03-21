@@ -11,8 +11,8 @@ class PazyStructure:
     def __init__(self, **kwargs):
         # settings
         local_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-        self.model = kwargs.get('model', 'Technion')
-        self.source_path = local_path + '/src/' + self.model + '/'
+        self.model_id = kwargs.get('model_id', 'pazy')
+        self.source_path = local_path + '/src/' + self.model_id + '/'
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.init_discretisation = kwargs.get('num_elem', 2)
@@ -62,7 +62,7 @@ class PazyStructure:
 
         method, discretisation = method_tuple
         
-        if self.model == 'Technion':
+        if self.model != 'delft':
             coords_file = self.source_path + 'coordinates_{}_skin.xlsx'.format(self._get_skin())
         else:
             coords_file = self.source_path + 'coordinates.xlsx'
@@ -135,7 +135,7 @@ class PazyStructure:
 
     def load_mass(self):
 
-        if self.model == 'Technion':
+        if self.model != 'delft':
             mass_file = self.source_path + 'inertia_{}_skin.xlsx'.format(self._get_skin())
         else:
             mass_file = self.source_path + 'inertia.xlsx'
@@ -343,7 +343,7 @@ class PazyStructure:
 
     def load_stiffness(self):
 
-        if self.model == 'Technion':
+        if self.model != 'delft':
             stiffness_file = self.source_path + 'stiffness_{}_skin.xlsx'.format(self._get_skin())
         else:
             stiffness_file = self.source_path + 'stiffness.xlsx'
