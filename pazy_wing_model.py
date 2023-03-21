@@ -35,6 +35,9 @@ class PazyWing:
     model_settings_types['symmetry_condition'] = 'bool'
     model_settings_default['symmetry_condition'] = False
 
+    model_settings_types['vertical'] = 'bool'
+    model_settings_default['vertical'] = False
+
     model_settings_types['model'] = 'str'
     model_settings_default['model'] = 'Technion'
     model_settings_description['model'] = 'Specifies which Pazy model, the one from Technion or TU Delft, is used.'
