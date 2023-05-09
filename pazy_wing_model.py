@@ -42,6 +42,10 @@ class PazyWing:
 
     model_settings_default['vertical'] = False
     model_settings_types['vertical'] = 'bool'
+
+    model_settings_default['x_correction'] = 0.
+    model_settings_types['x_correction'] = 'double'
+    
     def __init__(self, case_name, case_route='./', in_settings=None):
         self.case_name = case_name
         self.case_route = case_route
