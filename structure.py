@@ -16,7 +16,6 @@ class PazyStructure:
         self.skin = kwargs.get('skin_on', False)
         self.discretisation_method = kwargs.get('discretisation_method', 'michigan')
         self.init_discretisation = kwargs.get('num_elem', 2)
-        self.x_correction = kwargs.get('x_correction', 0)
 
         self.mirrored = False
 
@@ -496,7 +495,6 @@ class PazyStructure:
 
         filepath = case_route + '/{}.fem.h5'.format(case_name)
 
-        self.x += + self.x_correction
         with h5.File(filepath, 'w') as h5file:
             coordinates = h5file.create_dataset('coordinates', data=np.column_stack((self.x, self.y, self.z)))
             conectivities = h5file.create_dataset('connectivities', data=self.connectivities)
